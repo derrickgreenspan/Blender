@@ -38,10 +38,10 @@ void main(int argc, char *argv[])
 
 }
 
-/*********************************************************************************
+/********************************************************************************************
 ** This section is for support code.
-** Functions: usage(), calcDelta(), getModOperationValue(), and countTotal().
-**********************************************************************************/
+** Functions: usage(), calcDelta(), getModOperationValue(), countTotal(), and adjustGroup().
+*********************************************************************************************/
 
 /*
 ** This function shows the program usage.
@@ -105,6 +105,25 @@ int countTotal(unsigned char *data, int groupSize)
 
 	/* Return the total. */
 	return(total);
+}
+
+/*
+** This function adjusts a group of carrier bytes
+** so that its mod value will be that of the messageValue
+*/
+void adjustGroup(unsigned char *data, int groupSize, int modNumber, int messageValue)
+{
+	int circular = 0;
+	int delta = calcDelta(data, groupSize);
+	while (getModOperationValue(data, groupSize, modNumber) != messageValue)
+	{
+		data[circular] = data[circular] + delta;
+		circular = circular + 1;
+		if (circular >= groupSize)
+		{
+			circular = 0;
+		}
+	}
 }
 
 /*********************************************************************************
@@ -431,30 +450,8 @@ void embedMessage(unsigned char *rgbData, unsigned char *message, int messageLen
 	/* Loop through the bytes in the message. */
 	for (int i = 0; i < messageLength; i++)
 	{
-		/* Get the total for this set of image data bytes. */
-		int total = countTotal(rgbData, groupSize);
-
-		/* Get the delta for this group */
-		int deltaDirection = calcDelta(rgbData, groupSize);
-
-		/* The j variable will indicate which of the image byte
- 		   values that we are acting on. It will go through
-		   0,1,2,...n-1 then go back to 0. */
-		int j = 0;
-
-		/* We are shooting for a value where total % MODNUMBER equals message[i].
-		   This while loop will continue adjusting until we get there. */
-		while ((char)getModOperationValue(rgbData, groupSize, modNumber) != message[i])
-		{
-			rgbData[j%GROUPSIZE] += deltaDirection;
-
-			/* Update the total so we know when to quit. */
-			total += deltaDirection;
-
-			/* Next image data byte. (Will be MODded in
-			   order to keep within range.) */
-			j++;
-		}
+		/* Call the function that adjusts the carrier bytes in this group. */
+		adjustGroup(rgbData, groupSize, modNumber, (int)message[i]);
 
 		/* Move the pointer to the next group of image bytes. */
 		rgbData += groupSize;
